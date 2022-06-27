@@ -1,7 +1,6 @@
 # Pisv
 
-<img alt="License" src="https://img.shields.io/github/license/AoraMD/Pisv?style=flat-square">
-<img alt="Workflow" src="https://img.shields.io/github/workflow/status/AoraMD/Pisv/build?style=flat-square">
+<img alt="License" src="https://img.shields.io/github/license/AoraMD/Pisv?style=flat-square"><img alt="Workflow" src="https://img.shields.io/github/workflow/status/AoraMD/Pisv/build?style=flat-square">
 
 Pixiv illustration downloader.
 
