@@ -1,0 +1,53 @@
+name: build
+
+on:
+  push:
+    tags:
+      - '**'
+  pull_request:
+    tags:
+      - '**'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        types:
+          - { name: 'Linux x86_64', os: 'ubuntu-latest', target: 'x86_64-unknown-linux-musl', extension: '' }
+          - { name: 'Linux arm64', os: 'ubuntu-latest', target: 'aarch64-unknown-linux-musl', extension: '' }
+          - { name: 'macOS x86_64', os: 'macos-latest', target: 'x86_64-apple-darwin', extension: '' }
+          - { name: 'macOS arm64', os: 'macos-latest', target: 'aarch64-apple-darwin', extension: '' }
+          - { name: 'Windows x86_64', os: 'windows-latest', target: 'x86_64-pc-windows-msvc', extension: '.exe' }
+          - { name: 'Windows arm64', os: 'windows-latest', target: 'aarch64-pc-windows-msvc', extension: '.exe' }
+    name: Build and Upload - ${{ matrix.types.name }}
+    runs-on: ${{ matrix.types.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          submodules: 'resursive'
+      - name: Checkout Toolchain
+        uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: stable
+          target: ${{ matrix.types.target }}
+          override: true
+      - name: Build
+        uses: actions-rs/cargo@v1.0.1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target ${{ matrix.types.target }}
+      - name: Rename Artifacts
+        if: ${{ matrix.os != 'windows-latest' }}
+        run:
+          mv target/${{ matrix.types.target }}/release/pisv${{ matrix.types.extension }} pisv_${{ matrix.types.target }}${{ matrix.types.extension }}
+      - name: Rename Artifacts
+        if: ${{ matrix.os == 'windows-latest' }}
+        run:
+          move -y target\${{ matrix.types.target }}\release\pisv${{ matrix.types.extension }} pisv_${{ matrix.types.target }}${{ matrix.types.extension }}
+      - name: Upload Artifacts
+        uses: softprops/action-gh-release@v0.1.14
+        with:
+          files: pisv_${{ matrix.types.target }}${{ matrix.types.extension }}
