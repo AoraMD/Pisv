@@ -38,6 +38,8 @@ pub(self) fn create_artist_download_path(
     id: u64,
     name: &str,
 ) -> Result<PathBuf, Box<dyn Error>> {
+    let name = name.replace("/", "@");
+    
     if !parent.exists() {
         return Err(IoError::new(ErrorKind::AddrNotAvailable, "parent does not exists").into());
     }
