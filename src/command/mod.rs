@@ -24,7 +24,7 @@ pub(crate) fn default_save_path(sub: &str) -> String {
         Some(dir) => dir.join(APP_NAME_TITLEIZE).join(sub),
         None => {
             match dirs::data_local_dir() {
-                Some(dir) => dir.clone().join(APP_NAME).join("data"),
+                Some(dir) => dir.clone().join(APP_NAME).join("data").join(sub),
                 None => {
                     panic!("failed to load default save dir");
                 }
