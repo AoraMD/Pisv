@@ -9,7 +9,7 @@ use crate::{
     api::base::{download_image, IllustrationInfo},
     context::Context,
     util::extension::ResultExtension,
-    APP_NAME_TITLEIZE,
+    APP_NAME_TITLEIZE, APP_NAME,
 };
 use futures::future::join_all;
 use std::{
@@ -20,13 +20,17 @@ use std::{
 };
 
 pub(crate) fn default_save_path(sub: &str) -> String {
-    let picture_dir = match dirs::picture_dir() {
-        Some(dir) => dir,
+    let path = match dirs::picture_dir() {
+        Some(dir) => dir.join(APP_NAME_TITLEIZE).join(sub),
         None => {
-            panic!("failed to load default save dir");
+            match dirs::data_local_dir() {
+                Some(dir) => dir.clone().join(APP_NAME).join("data"),
+                None => {
+                    panic!("failed to load default save dir");
+                }
+            }
         }
     };
-    let path = picture_dir.join(APP_NAME_TITLEIZE).join(sub);
     if !path.exists() {
         create_dir_all(&path).unwrap();
     }
