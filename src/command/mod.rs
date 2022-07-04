@@ -31,9 +31,6 @@ pub(crate) fn default_save_path(sub: &str) -> String {
             }
         }
     };
-    if !path.exists() {
-        create_dir_all(&path).unwrap();
-    }
     return path.to_string_lossy().to_string();
 }
 
