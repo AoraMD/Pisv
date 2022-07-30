@@ -1,6 +1,6 @@
-use crate::context::{Context, Authorization};
+use crate::context::{Authorization, Context};
 
-pub(crate) fn main(token: String, context: &Context) {
+pub(crate) async fn main(token: String, context: &Context) {
     let bytes = match base64::decode_config(token, base64::STANDARD_NO_PAD) {
         Ok(decoded) => decoded,
         Err(error) => {
@@ -22,7 +22,7 @@ pub(crate) fn main(token: String, context: &Context) {
             return;
         }
     };
-    if let Err(error) = context.save_auth(auth) {
+    if let Err(error) = context.save_auth(auth).await {
         context.report_error(&format!("failed to save authorization: {}", error));
     };
 }

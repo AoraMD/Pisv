@@ -6,13 +6,13 @@ fn create_login_url() -> (String, Pkce) {
     return (url, pkce);
 }
 
-pub(crate) fn main(context: &Context) {
+pub(crate) async fn main(context: &Context) {
     let (url, pkce) = create_login_url();
 
     println!("login url: {}", url);
     let code = rpassword::prompt_password("code: ").unwrap();
 
-    let auth = match api::auth::login(&code, &pkce.verifier) {
+    let auth = match api::auth::login(&code, &pkce.verifier).await {
         Ok(auth) => auth,
         Err(error) => {
             context.report_error(&format!("login error: {}", error));
@@ -20,7 +20,7 @@ pub(crate) fn main(context: &Context) {
         }
     };
 
-    if let Err(error) = context.save_auth(auth) {
+    if let Err(error) = context.save_auth(auth).await {
         context.report_error(&format!("failed to save authorization: {}", error));
     };
 

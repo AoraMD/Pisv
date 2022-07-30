@@ -3,11 +3,11 @@ pub(crate) mod base;
 
 use crate::{context::Context, util::extension::ResultExtension};
 use chrono::Utc;
+use futures::Future;
 use reqwest::{
-    blocking::{Client, Response},
     header,
     header::{HeaderMap, HeaderValue},
-    StatusCode,
+    Client, Response, StatusCode,
 };
 use std::error::Error;
 
@@ -40,9 +40,9 @@ pub(self) fn base_client(headers: HeaderMap) -> Result<Client, Box<dyn Error>> {
         .into_ok();
 }
 
-pub(crate) fn initialize_token(context: &mut Context) {
+pub(crate) async fn initialize_token(context: &mut Context) {
     context.report_debug("try to load tokens from local storage");
-    let auth = match context.load_auth() {
+    let auth = match context.load_auth().await {
         Ok(auth) => auth,
         Err(_) => {
             return;
@@ -70,29 +70,36 @@ fn authorized_client() -> Result<Client, Box<dyn Error>> {
     return base_client(headers);
 }
 
-pub(self) fn authorized_request(
+pub(self) async fn authorized_request<R>(
     context: &mut Context,
-    request: &dyn Fn(&Client) -> Result<Response, Box<dyn Error>>,
-) -> Result<String, Box<dyn Error>> {
-    let client = authorized_client()?;
-    let response = request(&client)?;
-    let status = response.status();
-    let text = response.text()?;
-    if status == StatusCode::BAD_REQUEST {
-        if text.contains("Error occurred at the OAuth process") {
-            unsafe {
-                let auth = match auth::refresh(&CURRENT_REFRESH) {
-                    Ok(auth) => auth,
-                    Err(_) => {
-                        panic!("refresh token failed, please log in again");
-                    }
-                };
-                CURRENT_ACCESS = auth.access.clone();
-                CURRENT_REFRESH = auth.refresh.clone();
-                context.save_auth(auth)?;
+    request: impl Fn(Client) -> R,
+) -> Result<String, Box<dyn Error>>
+where
+    R: Future<Output = Result<Response, Box<dyn Error>>>,
+{
+    let mut continue_request = true;
+    let mut result = "".to_string();
+    while continue_request {
+        let response = request(authorized_client()?).await?;
+        let status = response.status();
+        result = response.text().await?;
+        if status == StatusCode::BAD_REQUEST {
+            if result.contains("Error occurred at the OAuth process") {
+                unsafe {
+                    let auth = match auth::refresh(&CURRENT_REFRESH).await {
+                        Ok(auth) => auth,
+                        Err(_) => {
+                            panic!("refresh token failed, please log in again");
+                        }
+                    };
+                    CURRENT_ACCESS = auth.access.clone();
+                    CURRENT_REFRESH = auth.refresh.clone();
+                    context.save_auth(auth).await?;
+                }
             }
-            return authorized_request(context, request);
+        } else {
+            continue_request = false;
         }
     }
-    return text.into_ok();
+    return result.into_ok();
 }

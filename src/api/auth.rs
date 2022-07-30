@@ -1,8 +1,8 @@
 use crate::{context::Authorization, util::extension::ResultExtension};
 use const_format::formatcp;
 use reqwest::{
-    blocking::Client,
     header::{self, HeaderMap, HeaderValue},
+    Client,
 };
 use serde::Deserialize;
 use std::error::Error;
@@ -42,7 +42,7 @@ fn auth_client() -> Result<Client, Box<dyn Error>> {
     return super::base_client(headers);
 }
 
-pub(crate) fn login(code: &str, verifier: &str) -> Result<Authorization, Box<dyn Error>> {
+pub(crate) async fn login(code: &str, verifier: &str) -> Result<Authorization, Box<dyn Error>> {
     let client = auth_client()?;
     let params = [
         ("client_id", CLIENT_ID),
@@ -57,14 +57,16 @@ pub(crate) fn login(code: &str, verifier: &str) -> Result<Authorization, Box<dyn
         let response = client
             .post(&format!("{}/auth/token", API_BASE_URL))
             .form(&params)
-            .send()?
-            .text()?;
+            .send()
+            .await?
+            .text()
+            .await?;
         serde_json::from_str(&response)?
     };
     return Authorization::from(response).into_ok();
 }
 
-pub(crate) fn refresh(refresh_token: &str) -> Result<Authorization, Box<dyn Error>> {
+pub(crate) async fn refresh(refresh_token: &str) -> Result<Authorization, Box<dyn Error>> {
     let client = auth_client()?;
     let params = [
         ("client_id", CLIENT_ID),
@@ -77,8 +79,10 @@ pub(crate) fn refresh(refresh_token: &str) -> Result<Authorization, Box<dyn Erro
         let response = client
             .post(&format!("{}/auth/token", API_BASE_URL))
             .form(&params)
-            .send()?
-            .text()?;
+            .send()
+            .await?
+            .text()
+            .await?;
         serde_json::from_str(&response)?
     };
     return Authorization::from(response).into_ok();

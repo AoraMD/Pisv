@@ -2,14 +2,14 @@ use futures::{executor::block_on, future::join_all};
 
 use super::fetch_illustration;
 use crate::{api::base, context::Context, Scope};
-use std::{fs::create_dir_all, path::Path};
+use std::path::Path;
 
-pub(crate) fn main(increment: bool, scope: Scope, path: String, context: &mut Context) {
+pub(crate) async fn main(increment: bool, scope: Scope, path: String, context: &mut Context) {
     let id = context.current_id();
     let parent = {
         let path = Path::new(&path);
         if !path.exists() {
-            if let Err(error) = create_dir_all(path) {
+            if let Err(error) = tokio::fs::create_dir_all(path).await {
                 context.report_error(&format!(
                     "failed to create download directory {}: {}",
                     path.display(),
@@ -21,7 +21,7 @@ pub(crate) fn main(increment: bool, scope: Scope, path: String, context: &mut Co
         path
     };
 
-    let result = match base::fetch_like(context, &id, scope) {
+    let result = match base::fetch_like(context, &id, scope).await {
         Ok(result) => result,
         Err(error) => {
             context.report_error(&format!("failed to fetch likes: {}", error));
@@ -44,7 +44,7 @@ pub(crate) fn main(increment: bool, scope: Scope, path: String, context: &mut Co
         return;
     }
     while next.is_some() {
-        let result = match base::fetch_continue(context, &next.unwrap()) {
+        let result = match base::fetch_continue(context, &next.unwrap()).await {
             Ok(result) => result,
             Err(error) => {
                 context.report_error(&format!("failed to fetch likes: {}", error));

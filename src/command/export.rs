@@ -1,7 +1,7 @@
 use crate::context::Context;
 
-pub(crate) fn main(context: &Context) {
-    let auth_json = match context.export_auth() {
+pub(crate) async fn main(context: &Context) {
+    let auth_json = match context.export_auth().await {
         Ok(Some(auth_json)) => auth_json,
         Ok(None) => {
             context.report_error("you are not logged in");

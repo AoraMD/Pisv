@@ -1,7 +1,7 @@
 use crate::context::Context;
 
-pub(crate) fn main(context: &Context) {
-    match context.clean_auth() {
+pub(crate) async fn main(context: &Context) {
+    match context.clean_auth().await {
         Ok(logout) => {
             if logout {
                 context.report_info("logout success");

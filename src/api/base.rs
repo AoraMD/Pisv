@@ -1,10 +1,7 @@
 use crate::{context::Context, util::extension::ResultExtension, Scope};
-use reqwest::{
-    blocking::{Client, Response},
-    header, Url,
-};
+use reqwest::{header, Client, Response, Url};
 use serde::Deserialize;
-use std::{error::Error, fs::File, io::Write, path::Path};
+use std::{error::Error, path::Path};
 
 use super::authorized_request;
 
@@ -80,7 +77,11 @@ impl Into<(Vec<IllustrationInfo>, Option<String>)> for IllustrationListResp {
     }
 }
 
-fn fetch_like_core(client: &Client, id: &str, scope: Scope) -> Result<Response, Box<dyn Error>> {
+async fn fetch_like_core(
+    client: &Client,
+    id: &str,
+    scope: Scope,
+) -> Result<Response, Box<dyn Error>> {
     let params = [
         ("user_id", id),
         (
@@ -95,18 +96,17 @@ fn fetch_like_core(client: &Client, id: &str, scope: Scope) -> Result<Response, 
         &format!("{}/v1/user/bookmarks/illust", API_BASE_URL),
         &params,
     )?;
-    return client.get(url).send()?.into_ok();
+    return client.get(url).send().await?.into_ok();
 }
 
-pub(crate) fn fetch_like(
+pub(crate) async fn fetch_like(
     context: &mut Context,
     id: &str,
     scope: Scope,
 ) -> Result<(Vec<IllustrationInfo>, Option<String>), Box<dyn Error>> {
-    let id = id.to_string();
-    let request = |client: &Client| fetch_like_core(client, &id, scope);
+    let request = |client: Client| async move { fetch_like_core(&client, id, scope).await };
     let response = {
-        let response = authorized_request(context, &request)?;
+        let response = authorized_request(context, &request).await?;
         serde_json::from_str::<IllustrationListResp>(&response)?
     };
     let illusts = response
@@ -118,20 +118,23 @@ pub(crate) fn fetch_like(
     return (illusts, next).into_ok();
 }
 
-fn fetch_artist_core(client: &Client, id: u64) -> Result<Response, Box<dyn Error>> {
+async fn fetch_artist_core(client: &Client, id: u64) -> Result<Response, Box<dyn Error>> {
     let params = [
         ("filter", "for_android"),
         ("type", "illust"),
         ("user_id", &id.to_string()),
     ];
     let url = Url::parse_with_params(&format!("{}/v1/user/illusts", API_BASE_URL), &params)?;
-    return client.get(url).send()?.into_ok();
+    return client.get(url).send().await?.into_ok();
 }
 
-pub(crate) fn fetch_artist(context: &mut Context, id: u64) -> Result<(Vec<IllustrationInfo>, Option<String>), Box<dyn Error>> {
-    let request = |client: &Client| fetch_artist_core(client, id);
+pub(crate) async fn fetch_artist(
+    context: &mut Context,
+    id: u64,
+) -> Result<(Vec<IllustrationInfo>, Option<String>), Box<dyn Error>> {
+    let request = |client: Client| async move { fetch_artist_core(&client, id).await };
     let response = {
-        let response = authorized_request(context, &request)?;
+        let response = authorized_request(context, &request).await?;
         serde_json::from_str::<IllustrationListResp>(&response)?
     };
     let illusts = response
@@ -143,17 +146,17 @@ pub(crate) fn fetch_artist(context: &mut Context, id: u64) -> Result<(Vec<Illust
     return (illusts, next).into_ok();
 }
 
-fn fetch_continue_core(client: &Client, url: &str) -> Result<Response, Box<dyn Error>> {
-    return client.get(url).send()?.into_ok();
+async fn fetch_continue_core(client: &Client, url: &str) -> Result<Response, Box<dyn Error>> {
+    return client.get(url).send().await?.into_ok();
 }
 
-pub(crate) fn fetch_continue(
+pub(crate) async fn fetch_continue(
     context: &mut Context,
     url: &str,
 ) -> Result<(Vec<IllustrationInfo>, Option<String>), Box<dyn Error>> {
-    let request = |client: &Client| fetch_continue_core(client, url);
+    let request = |client: Client| async move { fetch_continue_core(&client, url).await };
     let response = {
-        let response = authorized_request(context, &request)?;
+        let response = authorized_request(context, &request).await?;
         serde_json::from_str::<IllustrationListResp>(&response)?
     };
     let illusts = response
@@ -165,14 +168,15 @@ pub(crate) fn fetch_continue(
     return (illusts, next).into_ok();
 }
 
-pub(crate) fn download_image(file: &Path, url: &str) -> Result<(), Box<dyn Error>> {
-    let client = reqwest::blocking::Client::new();
+pub(crate) async fn download_image(file: &Path, url: &str) -> Result<(), Box<dyn Error>> {
+    let client = reqwest::Client::new();
     let response = client
         .get(url)
         .header(header::REFERER, "https://www.pixiv.net/")
-        .send()?
-        .bytes()?;
-    let mut file = File::create(file)?;
-    file.write_all(&response)?;
+        .send()
+        .await?
+        .bytes()
+        .await?;
+    tokio::fs::write(file, response).await?;
     return Ok(());
 }

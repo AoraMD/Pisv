@@ -7,8 +7,13 @@ use clap::{clap_derive::ArgEnum, AppSettings, Parser, Subcommand};
 use command::{artist, default_save_path, export, import, like, login, logout};
 use context::Context;
 
-const APP_NAME: &str = "pisv";
-const APP_NAME_TITLEIZE: &str = "Pisv";
+pub(crate) const APP_NAME: &str = "pisv";
+pub(crate) const APP_NAME_TITLEIZE: &str = "Pisv";
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub const APP_NAME_IN_PATH: &str = APP_NAME_TITLEIZE;
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+pub const APP_NAME_IN_PATH: &str = APP_NAME;
 
 #[derive(Parser)]
 #[clap(author, version, about)]
@@ -84,23 +89,23 @@ enum Scope {
 }
 
 impl Command {
-    fn execute(self, context: &mut Context) {
+    async fn execute(self, context: &mut Context) {
         match self {
             Command::Login => {
                 context.report_debug("run command: login");
-                login::main(context);
+                login::main(context).await;
             }
             Command::Logout => {
                 context.report_debug("run command: logout");
-                logout::main(context);
+                logout::main(context).await;
             }
             Command::Import { token } => {
                 context.report_debug("run command: import");
-                import::main(token, context);
+                import::main(token, context).await;
             }
             Command::Export => {
                 context.report_debug("run command: export");
-                export::main(context);
+                export::main(context).await;
             }
             Command::Like {
                 increment,
@@ -108,7 +113,7 @@ impl Command {
                 path,
             } => {
                 context.report_debug("run command: like");
-                like::main(increment, scope, path, context);
+                like::main(increment, scope, path, context).await;
             }
             Command::Artist {
                 increment,
@@ -116,15 +121,16 @@ impl Command {
                 id,
             } => {
                 context.report_debug("run command: artist");
-                artist::main(increment, path, id, context);
+                artist::main(increment, path, id, context).await;
             }
         }
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Args::parse();
     let mut context = Context::new(args.debug);
-    initialize_token(&mut context);
-    args.command.unwrap().execute(&mut context);
+    initialize_token(&mut context).await;
+    args.command.unwrap().execute(&mut context).await;
 }

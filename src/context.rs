@@ -1,11 +1,6 @@
-use crate::{util::extension::ResultExtension, APP_NAME};
+use crate::{util::extension::ResultExtension, APP_NAME_IN_PATH};
 use serde::{Deserialize, Serialize};
-use std::{
-    error::Error,
-    fs::{create_dir_all, read_to_string, File},
-    io::{Error as IoError, Write},
-    path::PathBuf,
-};
+use std::{error::Error, io::Error as IoError, path::PathBuf};
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Authorization {
@@ -22,21 +17,21 @@ pub(crate) struct Context {
 const AUTH_FILE: &str = "authorization";
 const UNKNOWN_USER_ID: &str = "<unknown>";
 
-fn data_path() -> Result<PathBuf, IoError> {
+async fn data_path() -> Result<PathBuf, IoError> {
     let path = dirs::data_local_dir()
         .ok_or(IoError::new(
             std::io::ErrorKind::Unsupported,
             "Unsupported operating system",
         ))?
-        .join(APP_NAME);
+        .join(APP_NAME_IN_PATH);
     if !path.exists() {
-        create_dir_all(&path)?;
+        tokio::fs::create_dir_all(&path).await?;
     }
     return path.into_ok();
 }
 
-fn auth_file_path() -> Result<PathBuf, IoError> {
-    return data_path()?.join(AUTH_FILE).into_ok();   
+async fn auth_file_path() -> Result<PathBuf, IoError> {
+    return data_path().await?.join(AUTH_FILE).into_ok();
 }
 
 impl Context {
@@ -69,33 +64,33 @@ impl Context {
         self.id = id.to_string();
     }
 
-    pub fn save_auth(&self, auth: Authorization) -> Result<(), Box<dyn Error>> {
-        let path = auth_file_path()?;
+    pub async fn save_auth(&self, auth: Authorization) -> Result<(), Box<dyn Error>> {
+        let path = auth_file_path().await?;
         self.report_debug(&format!("authorization is saved to {}", path.display()));
-        let mut auth_file = File::create(path)?;
-        write!(auth_file, "{}", serde_json::to_string(&auth)?)?;
+        let json = serde_json::to_string(&auth)?;
+        tokio::fs::write(path, json.as_bytes()).await?;
         return Ok(());
     }
 
-    pub fn load_auth(&self) -> Result<Authorization, Box<dyn Error>> {
-        let encoded = read_to_string(auth_file_path()?)?;
+    pub async fn load_auth(&self) -> Result<Authorization, Box<dyn Error>> {
+        let encoded = tokio::fs::read_to_string(auth_file_path().await?).await?;
         return serde_json::from_str::<Authorization>(&encoded)?.into_ok();
     }
 
-    pub fn clean_auth(&self) -> Result<bool, Box<dyn Error>> {
-        let path = auth_file_path()?;
+    pub async fn clean_auth(&self) -> Result<bool, Box<dyn Error>> {
+        let path = auth_file_path().await?;
         if path.exists() {
-            std::fs::remove_file(path)?;
+            tokio::fs::remove_file(path).await?;
             return Ok(true);
         } else {
             return Ok(false);
         }
     }
-    
-    pub fn export_auth(&self) -> Result<Option<String>, Box<dyn Error>> {
-        let path = auth_file_path()?;
+
+    pub async fn export_auth(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let path = auth_file_path().await?;
         if path.exists() {
-            return Some(read_to_string(path)?).into_ok();
+            return Some(tokio::fs::read_to_string(path).await?).into_ok();
         } else {
             return None.into_ok();
         }
