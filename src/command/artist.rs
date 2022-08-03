@@ -1,6 +1,6 @@
 use super::fetch_illustration;
 use crate::{api::base, context::Context};
-use futures::{executor::block_on, future::join_all};
+use futures::future::join_all;
 use std::path::Path;
 
 pub(crate) async fn main(increment: bool, path: String, id: u64, context: &mut Context) {
@@ -27,7 +27,7 @@ pub(crate) async fn main(increment: bool, path: String, id: u64, context: &mut C
         }
     };
     let mut next = result.1;
-    let done_increment = block_on(async {
+    let done_increment = {
         let futures = result.0.iter().map(|illust| {
             context.report_info(&format!(
                 "fetching {}(id: {}) from {}(id: {})",
@@ -36,7 +36,7 @@ pub(crate) async fn main(increment: bool, path: String, id: u64, context: &mut C
             fetch_illustration(context, parent, illust)
         });
         join_all(futures).await.iter().any(|x| *x)
-    });
+    };
     if done_increment && increment {
         context.report_info("skip fetch images due to increment mode");
         return;
@@ -49,7 +49,7 @@ pub(crate) async fn main(increment: bool, path: String, id: u64, context: &mut C
                 return;
             }
         };
-        let done_increment = block_on(async {
+        let done_increment = {
             let futures = result.0.iter().map(|illust| {
                 context.report_info(&format!(
                     "fetching {}(id: {}) from {}(id: {})",
@@ -58,7 +58,7 @@ pub(crate) async fn main(increment: bool, path: String, id: u64, context: &mut C
                 fetch_illustration(context, parent, illust)
             });
             join_all(futures).await.iter().any(|x| *x)
-        });
+        };
         if done_increment && increment {
             context.report_info("skip fetch images due to increment mode");
             return;
